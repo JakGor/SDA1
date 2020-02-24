@@ -29,9 +29,7 @@ Obecny świat w znacznym stopniu opiera się na technologii. Rozwiązania chmuro
 
 W projekcie wzięto pod uwagę zmienne dotyczące różnych aspektów gospodarki - od infrastruktury poprzez system edukacji, aż po stopień biurokratyzacji. Autorzy GCI, których bazą posłużono się w niniejszym projekcie przeprowadzili ankietę wśród osób na stanowiskach kierowniczych pochodzących z różnych krajów. Oceniano w niej na 7 stopniowej skali Likerta poszczególne zagadnienia składające się na 12 filarów. Ponadto autorzy raportu wykorzystali również zmienne liczbowe ze skali ilorazowej, takie jak liczba zgłoszonych patentów, czy też produkt krajowy brutto. Część ze zmiennych to udział procentowy wyrażony w punktach procentowych. 
 
-```{r echo=FALSE}
-Dane
-```
+
 
 ### ZaufaniePolicja
 
