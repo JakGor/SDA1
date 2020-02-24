@@ -1,0 +1,399 @@
+---
+title: "Analiza skupień dla państw UE pod kątem konkurencyjności gospodarek"
+author: "Jakub Górowski"
+date: "30.10.2019"
+output:
+  html_document:
+    fig_width: 8
+    fig_height: 6
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+Dane <- read.csv2("~/AGH/Zadania i wyklady/V semestr/SAD/DAta2.csv", header=TRUE, row.names=1)
+Dane2<-DaneC<-Dane<-round(Dane,3)
+library(corrplot)
+library(clusterSim)
+library(outliers)
+library(NbClust)
+library(factoextra)
+Dane2<-Dane<-DaneC<-Dane[-c(14,15,16)]
+
+```
+
+# Wstęp
+
+Obecny świat w znacznym stopniu opiera się na technologii. Rozwiązania chmurowe i stale rosnaca moc obliczeniowa którą możemy zabać ze spobą gdziekolwiek ułatwiają nasze życie. Tak naprawdę jednak stoimy na progu czwartej rewolucji przemysłowej. Coraz doskonalsza sztuczna inteligencja, technologie oparte o blockchain, czy też Internet rzeczy zmienią nasze otoczenie w sposób którego nie jesteśmy sobie w stanie wyobrazić. Naszą rzeczywistość kształtują często pomysły innowatorów i wizjonerów. Choć obarczone dużym ryzykiem, to jednak dzięki zaufaniu inwestorów i zainteresowaniu społeczeństw mogą odnosić sukcesy. Obecnie za kolebkę takich rozwiązań uważa się Krzemową Dolinę. Co jednak na to wpłynęło? Z pewnością nie były to same regulacje prawne, czy też idealny system edukacji. Autor niniejszego opracowania wybrał 14 różnych czynników które, jego zdaniem, wpływają na konkurencyjność państw w przyciąganiu twórców innowacyjnych rozwiązań i inwestorów zainteresowanych ich realizacją. Celem pracy jest, z pomocą metod analizy skupień, wybrać takie państwa, w których panują najlepsze warunki do tworzenia i wdrażania nowoczesnych technologii oraz innowacyjnych pomysłów. 
+
+# Rozpatrywane zmienne
+
+W projekcie wzięto pod uwagę zmienne dotyczące różnych aspektów gospodarki - od infrastruktury poprzez system edukacji, aż po stopień biurokratyzacji. Autorzy GCI, których bazą posłużono się w niniejszym projekcie przeprowadzili ankietę wśród osób na stanowiskach kierowniczych pochodzących z różnych krajów. Oceniano w niej na 7 stopniowej skali Likerta poszczególne zagadnienia składające się na 12 filarów. Ponadto autorzy raportu wykorzystali również zmienne liczbowe ze skali ilorazowej, takie jak liczba zgłoszonych patentów, czy też produkt krajowy brutto. Część ze zmiennych to udział procentowy wyrażony w punktach procentowych. 
+
+```{r echo=FALSE}
+Dane
+```
+
+### ZaufaniePolicja
+
+Respondentom zadano pytanie: *W Twoim kraju, w jakim zakresie można polegać na działaniach policji w zakresie chronienia prawa i utrzymywania porządku? [1 oznacza wcale; 7 znaczy w pełni]*. Sprawnie działająca policja wpływa na poczucie stabilności i bezpieczeństwa. Zwłaszcza działania wyspecjalizowanych służb pomagają chronić wolną i sprawiedliwą konkurencję.
+
+### ZaufaniePolitycy
+
+Respondentom zadano pytanie: *Jak oceniasz etyczne standardy polityków w Twoim kraju? [1 oznacza bardzo niskie; 7 znaczy bardzo wysokie]*. Ograniczenia i wymogi narzucane przez regulatorów mogą przyczynić się do zmiany kondycji niejednego biznesu. Z tego powodu warto wiedzieć, czy można zaufać obietnicom i deklaracjom składanym przez polityków.
+
+### OWI 
+
+Respondentom zadano pytanie: *W jakim stopniu chroniona jest własność intelektualna w Twoim kraju? [1 oznacza wcale; 7 znaczy w pełni]*. Poziom ochrony własności intelektualnej ma znaczenie szczególnie dla firm z branży technologicznej. To właśnie wiedza zapewnia im przewagę na rynku.
+
+
+### DlugoscZycia
+
+Zmienna ta pochodzi z bazy danych Banku Światowego (konkretnie *World Development Indicators*). Opisuje ona prognozowaną długość życia, dla osoby urodzonej w 2017r., jeżeli nie zmienią się wzorce kulturowe panujące w społeczeństwie. Wyrażana jest w latach. Obrazuje ona poziom opieki medycznej oraz politykę państwa wobec seniorów. Z tego powodu znalazła się w grupie rozpatrywanych zmiennych - dla przedsiębiorstwa może mieć znaczenie, ile lat będą żyć jego przyszli pracownicy, a także jak funkcjonuje ogólnodostępna opieka zdrowotna.
+
+### SysEdukacji
+
+Respondentom zadano pytanie: *Jak bardzo system edukacji w Twoim kraju jest dostosowany do potrzeb aktualnego rynku pracy? [1 oznacza wcale; 7 znaczy w pełni]*. Często poruszany temat w dyskusjach nad systemem edukacji, to zbyt duży nacisk na naukę teorii. Niektórzy uważają, że studenci określonych kierunków są po ich ukończeniu *skazani* na bezrobocie lub pracę w innym zawodzie. Ponadto w wypadku zakończenia edukacji na etapie liceum czy technikum, szanse na zatrudnienie są również niskie. Z drugiej strony rynek pracy nieustannie ewoluuje, a jego wymagania czasami są nieadekwatne do rzeczywistych oczekiwań pracodawców. Zmienna ta obrazuje jak, według pracodawców, system edukacji danego kraju radzi sobie w tej trudnej kwestii.
+
+### CałkowitePodatki
+
+Zmienna ta przedstawia całkowitą stawkę opodatkowania (wyrażaną w procentach) nałożoną na przedsiębiorstwo w drugim roku jego działalności. W jej skład wchodzą CIT, jaki i wszelkie inne podatki lub skłądki płacone przez pracodawcę na rzecz pracownika. Dla każdego przedsiębiorstwa korzystna jest jak najniższa wartość tej stawki, stąd działania takie jak *optymalizacja podatkowa* zmierzajace do jej redukcji. 
+
+
+### KobietyPracujące
+
+Zmienna ta przedstawia stosunek procentowego udziału kobiet w wieku 15-64 lat aktywnych zawodowo do analogicznej grupy mężczyzn. Im większy ten iloraz, tym więcej kobiet na rynku pracy, a zatem jest on większy. W takiej sytuacji pracodawca powinien mieć większą łatwość w poszukiwaniu pracowników. 
+
+### UżytkownicyInternetu
+
+Zmienna ta przedstawia procentowy udział osób korzystajacych z Internetu wśród populacji danego kraju. Za osobę używającą internetu traktowana jest osoba która w ciągu ostatnich 3 miesięcy chociaż raz używała internetu w dowolnym celu i z dowolnego źródła. Choć wydawać by się mogło, że obecnie Internet jest powszechny na terenie UE, to jednak statystyki opisowe tej zmiennej zdają się świadczyć o czymś zupełnie innym. W Uni Europejskiej istnieje kraj, w którym Internetu używa niecałe 60% populacji. Ponadto średnia wynosi około 80% i jest bliska medianie, co świadczy o braku szczególnie skrajnych wartości, które miałyby wpłynąć na średnią. Dla przedsiębiorców powszechność Internetu zwiększa zarówno możliwości promocji i kanały sprzedaży, jak i świadczy o większym *obyciu z technologią* danego społeczeństwa, a zatem również - przyszłych pracowników. Ponadto lepiej jest testować i wdrażać nowoczesne rozwiązania wśród społeczeństwa które będzie z nich korzystać.
+
+### Prędkość Internetu
+
+W świecie w którym znaczna część przedsiębiorstw wykorzystuje technologie chmurowe, a spotkania biznesowe realizowane są w formie internetowych *call'i* bardzo ważna staje się prędkość naszego połączenia z siecią. Im jest większa, tym bardziej możemy polegać na wszystkich usługach korzystających z Internetu. Zmienna PredkoscInternetu przedstawia właśnie tę prędkość - wyrażoną w kb/s na użytkownika Interentu w danym kraju. Na terenie UE zauważyć można jeden szczególny outlier - jest to Luksemburg. Możeon szczycić się bardzo wysoką średnią prędkością, niemal 80 razy większą niż mediana UE.
+
+### Patenty
+
+Zmienna ta reprezentuje liczbę zgłoszonych patentów przypadającą na milion mieszkańców. Świadczy ona o przedsiębiorczości i kreatywności społeczeństwa. Weryfikuje poniekąd także edukację wyższą - to czy uczy ona jedynie teorii, czy także zachęca do kreatywnego myślenia. Im więcej patentów zgłasza dany kraj, tym większa szansa na pozyskanie twórczych pracowników, którzy przyczynią się do sukcesu firmy. Warto nadmienić, że zmienna Patenty uwzględnia narodowość osoby zgłaszającej patent, a nie miejsce jego zgłoszenia. Z tego powodu jest bardziej miarodajna, ponieważ ukazuje również działalność osób pracujących za granicą w międzynarodowych korporacjach.
+
+### Procedury Biznes
+
+Zmienna ta przedstawia liczbę procedur związaną z zakładaniem własnego biznesu. Ich nadmiar może zniechęcić potencjalnych przedsiębiorców. Świadczy również o ogólnej biurokratyzacji państwa. 
+
+### Dni Biznes
+
+Zmienna ta przedstawia liczbę dni roboczych, jaka jest wymagana aby rozpocząć działalność gospodarczą. Przeciągajace się w nieskończoność oczekiwanie, podobnie jak nadmiar procedur, wpływa negatywnie na chęć założenia własnego biznesu.
+
+### Zmiana inflacji
+
+Roczna zmiana inflacji przekazuje nam istotne informacje o stanie gospodarki danego kraju. Jej wysoka wartość oznacza m. in. niezrównoważony budżet państwa, czy też zbyt dużą ilość pieniędzy w obiegu. Z kolei ujemne wartości okreslane są jako deflacja - świadczą o stagnacji wzrostu gospodarczego. Uważa się, że niska wartośc inflacji (rzędu 2% w skali roku) jest zjawiskiem pozytywnym.
+
+### Fundusze venture capital
+
+Respondentom zadano pytanie: *Jak łatwo start-up'y z innowacyjnymi, lecz ryzykownymi projektami są w stanie otrzymać brakujący kapitał? [1 oznacza ekstremalnie trudno; 7 znaczy bardzo łątwo]*. Często bardzo dochodowe przedsięwzięcia zaczynają się od ryzykownych pomysłów, które jednak według ich twórców - mogą zrewolucjonizować świat. Zmienna ta oznacza jak w danym kraju wspierani są innowatorzy - czy mogą liczyć na dofinansowanie, jak wiele związane jest z tym biurokracji. Obecnie niektóre firmy w ramach swoich struktur wyodrębiają jednostki o charakterze start-up'owym - dostępność obcego kapitału może być dla nich okazją do realizacji pomysłu, bez ryzykowania majatkiem przedsiębiorstwa.
+
+# Ocena danych
+
+## Zmienność
+Aby otrzymać poprawne wnioski w analizie skupień, należy sprawdzić czy zmienne nie są quasi-stałe. Muszą one charakteryzować się zmiennością nie mniejszą niż 10%
+
+```{r echo=FALSE}
+
+
+wz <- c()
+for (i in 1:14){
+  wz[i] = sd (Dane[,i])/(mean(Dane[,i]))
+}
+round (wz, 3) > 0.1
+```
+Okazuje się, że wśród rozpatrywanych zmiennych DlugoscZycia oraz KobietyPracujace charakteryzują się bardzo niskim poziomem współczynnika zmienności. Wynika z tego, że w Uni Europejskiej zarówno oczekiwana długość życia, jak i stosunek pracujących kobiet do męszczyzn jest na podobnym poziomie. Szczególnie quasi-stałość pierwszej zmiennej jest interesująca - pokazuje, że pomimo różnic w zamożności pomiędzy poszczególnymi krajami członkowskimi UE, ich obywatele dożywają obecnie podobnego wieku. Natomiast obecność w tej grupie zmiennej przedstawiającej iloraz odsetków osób obojga płci aktywnych zawodowo nie powinna dziwić - zarówno we wschodniej jak i zachodniej Europie z emancypacja kobiet była powszechna w pierwszej połowie XX w., a obecnie funkcjonujące wzorce kulturowe dotyczące aktywności zawodowej kobiet są identyczne na jej terytorium. Kobiety są traktowane na rynku pracy na równi z mężczyznami, a wszelkie odstępstwa od tej zasady spotykają się z krytyką społeczeństwa. Z tych powodów odsetek kobiet aktywnych zawodowo jest porównywlny w całej UE, a zatem posiada niewielki współczynnik zmienności.  
+Obydwie zmienne zostają usunięte ze zbioru dancyh.
+
+## Korelacja
+Ropatrywane zmienne nie mogą być nadmiernie skorelowane ze sobą nawzajem, ponieważ zaburzyć to może wyniki klasyfikacji. Powinny być jednak również minimalnie skorelowane ze sobą nawzajem. 
+
+```{r echo=FALSE, fig.width=10, fig.height=8}
+
+Dane2<-DaneC<-Dane<-Dane[-c(4,7)]
+
+corrplot(cor(Dane))
+round(cor(Dane),2)
+
+Dane2<-DaneC<-Dane<-Dane[-c(5)]
+
+
+```
+Korelogram sugerować może nadmierną korelację między zmiennymi. Po dokładnym sprawdzeniu jednak, dla żadnej pary zmiennych jej współczynnik korelacji nie przekracza 0,9. Oznacza to, że wyniki nie będą zaburzone. Z uwagi na bardzo małą korelację zmiennej CalkowitePodatki zadecydowano o usunięciu jej ze zbioru. 
+
+# Normalizacja i outliery
+Obecność wartości odstających również zaburzyć może wyniki klasyfikacji. Najprostszą metodą na sprawdzenie ich występowania jest graficzne interpretacja wykresów pudełkowych po normalizacji zmiennych. W tym celu wykorzystano funkcję data.Normalization (ustawiona metoda normalizacji to n1, czyli standaryzacja). Ponadto normalizacja pozwala wprowadzić porównywalność - bez niej część wartości przyjmowałaby skalę od 1 do 7, a inne od dziesiątek do tysięcy. Wówczas wpływ tych zmiennych jest różny, co zaburza poprawne grupowanie.
+
+``` {r, echo=FALSE }
+Dane <- DaneC<- round(data.Normalization(Dane,type="n1"),3)
+boxplot(Dane)
+ 
+```
+
+Na wykresach pudełkowych zauważyć można obecność outlierów pod kątem zmiennych nr 6, 7, 9, 10 (PredkoscInternet, Patenty, DniBiznes oraz ZmInflacji). Postanowiono również sprawdzić obecność outlierów za pomocą testu Grubbsa.
+W tym celu autor opracował kod, weryfikujący liczbę outlierów wśród poszczególnych zmiennych, aby móc lepiej ocenić, czy konkretne obserwacje są odstające na wielu płaszczyznach. 
+
+``` {r, eval= TRUE, echo=TRUE}
+outliers<-matrix(FALSE,nrow=28,ncol=11) #tworzona jest macierz, gdzie dla każdej obserwacji zapisane zostanie czy i dla której zmiennej jest outlierem
+outliersWzm<-c() #wektor w którym zostanie zsumowana liczba outlierów dla każdej zmiennej
+outliersWobs<-c() # wektor w którym zostanie zapisane ile razy dana obserwacja była outlierem
+rownames(outliers)<-rownames(DaneC) 
+
+
+for(i in 1:11){ #każdy obiekt pętli wykonujemy dla konkretnej zmiennej
+  Dane<-DaneC 
+  test<-grubbs.test(Dane[,i]) #wykonywany jest test Grubbsa
+  liczbaoutlierow=0 #liczba outlierów dla i-tej zmiennej ustawiana jest na 0
+  while(test$p.value<0.05){ #pętla będzie się wykonywać do póki test Grubbsa będzie wykrywać outliery
+    
+    tempoutlier<-as.numeric(strsplit(test$alternative," ")[[1]][3]) #sprawdzana w teście obserwacja zostaje "wyłuskana"
+    liczbaoutlierow=liczbaoutlierow+1  #następuje zwiększenie liczby outlierów
+    outliers[match(tempoutlier,DaneC[,i]),i] = TRUE #dana obserwacja zostaje oznaczona jako outlier w macierzy outliers
+    Dane<-subset(Dane, Dane[,i]!=tempoutlier) #następnie zostaje ona usunięta ze zbioru
+    test<-grubbs.test(Dane[,i]) # ponownie wykonywany jest test Grubbsa, aby sprawdzić czy nie wystepuje więcej outlierów
+    
+    
+  }
+  
+  outliersWzm[i]<-liczbaoutlierow #liczba outlierów zostaje zapisana
+  
+}
+
+for (i in 1:28){ #podwójna pętla for iteruje po macierzy outliers, aby sprawdzić ile razy dana obseracja była outlierem
+  liczbaoutlierow = 0 
+  for(j in 1:11){
+    if(outliers[i,j]==TRUE) 
+      {liczbaoutlierow <- liczbaoutlierow + 1}  
+  }
+  outliersWobs[i] = liczbaoutlierow
+}
+nazwy<-rownames(DaneC)
+names(outliersWobs)<-nazwy
+nazwy<-colnames(DaneC)
+names(outliersWzm)<-nazwy
+
+outliersWobs
+outliersWzm
+
+
+Dane<-Dane2<-Dane2[-c(6,9)]
+```
+Według testu Grubbsa rozkład dla zmiennych PredkoscInternet oraz DniBiznes zawiera wartości odstające. W celu zachowania jednolitego zbioru obserwacji (cała UE), ze zbioru dancyh zostaną usunięte zmienne, a nie obserwacje Definitywnie należy usunąć zmienną PredkoscInternet ze zbioru danych, ponieważ aż 4 obserwacje w jej rozkładzie były traktowane jako wartości odstające. Ponadto ze zbioru zostanie usunięta zmienna DniBiznes. Choć usuwanie zmiennych nie jest najlepszą możliwą praktyką, to jednak z uwagi na:  
+
+* małą liczbę obserwacji
+* stosunkowo dużą liczbę zmiennych
+* chęć odwzorowania w badaniu całej Uni Europejskiej
+
+usuwaniu podlegać będą właśnie zmienne, a nie obserwacje. W ten sposób zarazem wyeliminowano wszystkie outliery.
+
+```{r, echo=FALSE}
+
+Dane_std<-Dane <- round(data.Normalization(Dane,type="n1"),2)
+```
+
+# Grupowanie
+Po przygotowaniu zestawu danych można przystąpić do grupowania. Wyróżnia się dwa rodzaje grupowania - podziałowe i hierarchiczne. 
+
+## Grupowanie podziałowe
+Na początek autor zdecydował się użyć technik grupowania podziałowego. Jako metodę obliczenia odległości, wybrano _euclidean_ - jest to najpopularniejsza metoda liczenie odległości (tzw. odległość euklidesowa). Pojęcie odległości jest szczególnie ważne w grupowaniu, ponieważ to właśnie jej wartości są wykrzystywane do przyporządkowania obiektów do konkretnych grup (obiekty w jedej grupie powinny charakteryzować się małą odległością względem iebie i większą względem pozstałych obiektów). Wykorzystane metody grupowania to __k-średnich__ (k-means) oraz ulepszony algorytm __k-medoid__ (PAM). W algorytmach tych musimy z góry określić, na ile klastrów podzielić nasze dane. Aby jednak ułatwić sobie decyzję, obydwa algorytmy zostaną uruchomione w pętli - dzięki czemu będzie można otrzymać wyniki algorytmów dla zadanej liczby klastrów (od 2 do 6). Aby graficznie zinterpretować wyniki grupowania, z wykorzystaniem metody składowych głównych (PCA). Dzięki PCA zmienne zostają zamienione w 2 składowe główne, które wyjaśniają większość zmienności - w ten sposób możemy przedstawić otrzymane grupy obserwacji w dwóch wymiarach. Wykresy zostały narysowane dzięki funkcji _eclust_. Wadą obydwu metod jest charakter __czarnej skrzynki___ - po określeniu warunków początkowych algorytm dobiera obserwcje do grup i zwraca badaczowi jedynie końcowy rezultat.Z tego powodu trudniej jest podjąć decyzję o optymalnej liczbie klastrów - to zadanie ułatwione jest w drugiej metodzie grupowania - grupowaniu hierarchicznym. Gdy wizualizujemy rezultaty mamy do czynienia z wadą wynikającą z zastosowania PCA - zredukowanie liczby wymiarów powoduje utratę części inforamcji. Jak będzie można odczytać z wykresów, dwie składowe główne wujaśniają około 75% zmienności. Jest to swego rodzaju cena, jaką zapłacić należy za łatwą interpretację w dwóch wymairach.  
+
+### K-means
+W algorytmie k-średnich początkowo określane są centroidy (czyli wielowymiarowe średnie)  skupień powstałych z punktów początkowych. Obserwacje są przyporządkowane do grup, których centroidy są dla nich najbliższe. Z każdym powtórzeniem tej procedury zmieniają się skupienia, a zatem również ich centroidy. Z tego powodu obserwacje mogą zmieniać przynależność do grup z kolejnymi iteracjami. Algorytm kończy się, gdy w wyniku iteracji żaden z punktów nie zmienił swojej grupy. Ponieważ nie wiadomo na ile grup podzielić dane, dzięki pętli for otrzymać można rezultaty grupowania dla różnych zadanych skupień. Auor postanowił rozpatrzyć wyniki od 2 do 6 grup.     
+
+```{r, echo=FALSE}
+for(i in 2:6){
+  kmeans<-eclust(Dane_std, FUNcluster="kmeans", k=i, hc_metric = "euclidean")
+  
+}
+
+```
+
+Interpretując graficznie podziały, wydaje się że optymalna liczba skupień waha się od 2 do 4. Otrzymujemy wówczas zbiory które nie nachodzą na siebie - oznacza to, że tworzące je obserwacje są bliższe innym obserwacjom z danego klastra, niż tym z pozostałych grup. Warto dodać, że charakter powstałych skupień silnie zależy od punktów startowych - z tego powodu określa się ile razy algorytm powinien zostać uruchomiony, aby uśrendić wyniki. Korzystając z wykresów wybieramy k = 4 (cztery grupy) oraz nstarts = 25 w funkcji kmeans() - w ten sposób również otrzymamy 4 klastry, natomiast procedura zostanie powtórzona 25 razy, aby uzyskać bardziej wiarygodne wyniki.  
+
+
+```{r, echo=FALSE}
+ksrednich<-kmeans(Dane_std, centers=4,nstart = 25 )
+fviz_cluster(ksrednich, data = Dane_std)
+```
+
+Otrzymano odmienne klastry o liczebności innej niż w przypadku funkcji eclust (która nie daje możliwości wybrania określonej liczby powtórzeń) - co potwierdza zależność wyników od tego parametru. Oceniając dopasowanie obserwacji do klastrów, przyznać należy że większa liczba powtórzeń wpłynęła na nie pozytywnie. Członkowie klastrów są zauważalnie bliżej siebie. Z tego powodu to właśnie to dopasowanie zostanie poddane interpretacji.    
+
+
+``` {r, echo = FALSE}
+
+
+sr <- od<-  matrix(NA, 9, 4)
+rownames(sr)<- rownames(od) <- colnames(Dane)
+#colnames(sr) <- colnames(od) <- c("I", "II","III","IV","V")
+colnames(sr) <- colnames(od) <- c("I", "II","III","IV")
+
+Dane2$kmeans <- ksrednich$cluster
+
+for(i in 1:9){
+  sr[i,] = tapply(Dane2[,i], Dane2$kmeans, mean)
+  od[i,] = tapply(Dane2[,i], Dane2$kmeans, sd)
+}
+sr
+od
+
+
+```
+### K-means - interpretacja
+
+Analizując średnie wartości zmiennych (tabela pierwsza), łatwo można dojść do wniosku, że państwa wchodzące w skład III grupy są najmniej obiecującym miejscem do inwestycji. Ich wspólnym mianownikiem jest bardzo niskie zaufanie do polityków - odchylenie (tabela druga) pomiędzy wartościami tej zmiennej w poszczególnych obserwacjach jest bardzo małe. W tych krajach również nie tworzy się wielu nowych technologii i rozwiązań - liczba zgłoszonych patentów również jest bardzo niska, przy (ponownie) najniższym odchyleniu standardowym. Informację o kondycji tych gospodarek niesie również średnia zmiana inflacji w ciągu roku - w tej grupie mówić możemy o deflacji, której przyczami najczęściej jest stagnacja rozwoju - zaznaczyć jednak należy dosyć dużą wartość odchylenia, więc takei wnioski z pewnością nie dotyczą wszystkich członków tego klastra. Z pewnością nie jest to jednak najlepsze miejsce do inwestycji.  Grupę tą określić można jako _kraje słabiej roziwnięte_.
+Takim miejscem mogą być na pewno kraje wchodzące w skład grupy pierwszej. Choć wartości większości zmiennych wskazują na większe podobieństwo do powyższej grupy, to jednak zauważyć należy progres właściwie na każdym polu (za wyjątkiem poziomu biurokracji). Państwa te już rozpoczęły pościg za najlepszymi, więc ich rynki wciąż będą się rozwijać, zatem z pewnością są konkurencją dla grup _lepiej rozwiniętych_. Nawet jeżeli nie dysponujemy tam kapitałem, to nie powinniśmy mieć większych problemów z jego uzyskaniem - w dowolnym kraju, ponieważ odchylenie standardowe zmiennej Venture jest niskie (wyraźnie niższe niż w pozostałych grupach - co tylko potwierdza ich potencjał). Klaster ten określić można jako _rozwijający się_.  
+Grupy II i IV na pierwszy rzut oka wydają się do siebie podobne. Państwa grupy IV wydają być się bardziej skupione wokół ich obywateli - władze cieszą się tam największym zaufaniem, a biurokracja jest zmniejszona do minimum. Odchylenia standardowe większości zmiennych są niższe niż w przypadku drugiej grupy. Wyjątkiem jest liczba zgłoszonych patentów - jej odchylenie znacznie odbiega od pozostałych. świadczyć to może o zróżnicowanym potencjale kreatywności w poszczególnych krajach. Potencjał ten jest zdecydowanie wyższy w krajach drugiej grupy. Z tego powodu grupę drugą określać możemy jako _kraje rozwinięte o potencjale w obywatelach_, natomiast grupę czwartą - _państwa idealne_. Znaczna część innowacyjnych technologii, czy start-up'ów tworzona jest właśnie w tych krajach, z powodu ich wysokiego poziomu rozwoju. Wiąże się to jednak z olbrzymią konkurencją na tych rynkach - z tego powodu nie zawsze będą one najlepszym wyborem.  
+Ciekawym faktem wydaje się również zróżnicowany w zależności od zmiennej poziom odchyleń standardowych - nie istnieją grupy które których obserwacje zawsze byłyby najbardziej lub najmniej jednorodne względem innych grup. Zawsze jeżeli odchylenie jest mniejsze dla jednej zmiennej, to dla innej będzie większe niż w pozostałych grupach. Świadczy to o wciąż występujących różnicach, nawet w konkretnym skupieniu - brak grup które wyraźnie odstawałyby od innych pod każdym względem. 
+
+
+### K-medoid (PAM)
+W tej metodzie punktem odniesienia dla obiektów jest medoida, będąca wielowymiarową medianą. Z tego powodu jest ona bardziej odporna na zaburzenia w postaci outlierów (w przeciwieństwie do średniej, która łatwo ulega zaburzeniu). Algorytm PAM oblicza różnice pomiędzy medoidą, a najbliższymi obiektami i dąży do ich zminimalizowania (poprzez zmianę medoidy). Celem algorytmu jest znalezienie zadanej liczny obiektów, których suma różnic względem najbliższych obserwacji będzie najmniejsza. Ciekawym wyróżnikiem algorytmów opartych o szukanie medoid jest fakt, że otrzymuje się w ich rezultacie typowych przedstawicieli danej grupy. Znacznie ułatwia to przedstawienie rezultatów osobom niezaznajomionym ze statystyką, co niewątpliwie jest zaletą przy opracowywaniu np. analiz dla zarządu czy też na potrzeby ogólnodostępnych raportów.     
+Podobnie jak w przypadku algorytmu k-means autor sprawdził rezultaty dla różncej liczby zadanych klastrów. Ponownie - użyta miara odległości do odległość euklidesowa.   
+```{r, echo = FALSE}
+for(i in 2:6){
+  kmedoid<-eclust(Dane_std, FUNcluster="pam", k=i, hc_metric = "euclidean")
+}
+
+
+```
+Na pierwszy rzut oka zauważyć można różnice pomiędzy klastrami otrzymanymi metodą k-means, a PAM. Jedynymi klastrami o  takich samych obserwacjach są:  
+
+* Grupa Niemcy-Austria
+* Grupa Chorwacja-Bułgaria-Rumunia  
+
+Świadczyć to może, o podobieństwie obiektów wewnątrz tych grup. Nie istnieją w nich skrajne parametry, które zaburzałyby wartości średnich.  
+Analizując graficzne rezultaty, można dojść do wniosku, że 4 grupy, które wydawały się optimum dla algorytmu k-means, tutaj są najmniej sensowanym rozwiązaniem. Natomiast wydaje się, że najrozsądniej jest podzielić obserwacje na trzy grupy. Otrzymujemy wówczas 3 typowych przedstawicieli grup:  
+
+* Czechy
+* Wielka Brytania
+* Polska 
+
+
+``` {r, echo = FALSE}
+wynikiPam<- pam(Dane_std, k=3)
+wynikiPam$medoids
+
+srpam <- odpam<-  matrix(NA, 9, 3)
+rownames(srpam)<- rownames(odpam) <- colnames(Dane)
+colnames(srpam) <- colnames(odpam) <- c("I", "II","III")
+
+Dane2$pam <- wynikiPam$clustering
+
+for(i in 1:9){
+  srpam[i,] = tapply(Dane2[,i], Dane2$pam, mean)
+  odpam[i,] = tapply(Dane2[,i], Dane2$pam, sd)
+}
+srpam
+odpam
+```
+
+Znów można podzielić UE na kraje wysoko (grupa II), średnio (grupa I) i nisko (grupa III) rozwinietę. Pomimo zastosowania median, odchylenia standardowe wewnątrz grup praktycznie nie zmieniły się - lecz może wynikać to z tego, że rozpatrywane są 3, a nie 4 grupy. 
+
+## Grupowanie hierarchiczne
+Jako kolejne zostanie wykonane grupowanie hierarchiczne. Na początku należy wyznaczyć macierz odległości, a później dokonać grupowania z użyciem funkcji _hclust_. Ponownie wybrano funkcję odległości euklidesowej. Graficzne przedstawienie rezultatu grupowania to dendogram. Pokazuje on nam jak przebiegał proces łączenia obserwcji w grupy. Obserwując go możemy ustalić, które grupy powstały wcześniej (więc ich członkowie są do siebie bardziej zbliżeni). Analiza etapów formowania się grup pozwala ekspercko określić ile grup powinniśmy otrzymać. Spoglądając na dendogram możemy założyć, że będie ich ok. 5. 
+
+
+
+```{r echo=FALSE}
+odlEuc <- dist(Dane,method = "euclidean")
+
+
+gr_ward_d2 <- hclust(odlEuc, method = "ward.D2")
+
+plot(gr_ward_d2, main = "Dendrogram") 
+
+
+```
+
+### Indeksy
+Pomocne w podjęciu decyzji mogą być indeksy. Rozpatrzono następujące: 
+
+* G2 - wybrana powinna zostać liczba grup, przy której wartość indeksu jest największa
+* G3 - wybrana powinna zostać liczba grup, przy której wartość indeksu jest najmniejsza
+* S - wybrana powinna zostać liczba grup, przy której wartość indeksu jest największa
+
+
+``` {r echo = FALSE}
+G2 <- G3 <-S <- c()
+for(i in 2:7){
+  podz = cutree(gr_ward_d2, k=i)
+  G2[i] <-index.G2(odlEuc, podz)
+  G3[i] <- index.G3(odlEuc, podz)
+  S[i] <- index.S(odlEuc, podz)
+}
+cbind(G2,G3,S)
+
+
+```
+Powyższe indeksy dały identyczne wyniki, więc możemy potraktować je jako wskazówki przy określeniu liczby grup. Według nich powinniśmy podzielić obserwacje na 2 skupienia. Przyglądając się dendogramowi, nie wydaje się to jednak najlepszym wyjściem. Ponadto indeks G2 wydaje się rosnąć wraz z liczbą klastrów - co również podważa jego wskazania. Pakiet NbClust zawiera więcej wskaźników - aż 30, dzięki czemu w trudnie ułatwić on może podjęcie decyzji o optymalnej liczbie grup. Ponadto zawiera on dwa wskaźniki do graficznej interpracji. Na wykresach wartości statystyki szukać należy _kolanka_, czyli znacznego wzrostu (lub spadku) wartości indeksu - wówczas z osi poziomej odczytać można sugerowaną liczbę klastrów. Podobnie w przypadku wykresu różnic wartości indeksów - tutaj poszukujemy jednak _szczytów_. Wadą tego pakietu jest, ponownie, charakter _czarnej skrzynki_ - przy tak dużej liczbie statystyk trudno w pełni zrozumieć działanie każdej z nich, zatem jego rezultaty nie będą traktowane jako ostateczny wynik. Uogólniając, indeksy w tym pakiecie wskazują optymalną liczbę klastrów na podstawie:  
+
+* ich minimalnej wielkości (np. indeks McClain-Rao)
+* ich maksymalnej wartości (np. indeks Silhouette)
+* najmniejszej liczby grup przy której indeks przekroczył odpowiednią wartość krytyczną (np. indeks Duda-Hart)
+* największej różnicy pomiędzy waartościami indeksu (np. indeks Scott'a)
+
+
+```{r}
+wyniki<-NbClust(Dane, distance = "euclidean", min.nc = 2, max.nc = 7, method = "ward.D2", index = "alllong")
+
+```
+Znaczna część indeksów wskazała na 2 grupy. Indeks Huberta sugeruje nam 6 grup, a  D-indeks wskazuje na 5 skupień. Ostatecznie podjęto decyzję o podziale na 2 skupienia.
+
+
+
+``` {r echo = FALSE}
+
+
+sr <- od<-  matrix(NA, 9, 2)
+rownames(sr)<- rownames(od) <- colnames(Dane)
+#colnames(sr) <- colnames(od) <- c("I", "II","III","IV","V")
+colnames(sr) <- colnames(od) <- c("I", "II")
+
+Dane2$ward5 <- cutree(gr_ward_d2, k=2)
+
+for(i in 1:9){
+  sr[i,] = tapply(Dane2[,i], Dane2$ward5, mean)
+  od[i,] = tapply(Dane2[,i], Dane2$ward5, sd)
+}
+sr
+od
+#cluster.Description(Dane,ward5, sdType = "population")
+
+```
+## Grupowanie hierarchiczne - opis i profilowanie klas
+Wyników takiego grupowania można było się spodziewać - UE została podzielona na część _lepszą_ i _gorszą_.Do klasy nr I należą najbardziej rozwinięte kraje UE. Zarówno zaufanie do działań policji jak i polityków jest na wysokim poziomie. Bardzo dobrze funkcjonuje tam system edukacji oraz ochrona własności intelektualnej. W tych krajach również najwięcej obywateli używa Interentu. Przedsiębiorcy mogą liczyć na sporą dostępność funduszy venture capital, a także na zminimalizowaną biurokrację. Społeczeństwa tych krajów są kreatywne, ponieważ zgłaszają znacznie więcej patentów niż kraje należące do drugiej grupy (choć zwrócić należu uwagę na małą jednorodność pod kątem tej zmiennej - odchylenie standardowe jest bardzo duże). Średni poziom inflacji jest niewielk - również jest to pozytywne zjawisko. Na rynkach tych państw spodziewać można się również wysokiego poziomu konkurencji, spowodowanego przez ich idealne cechy.  
+Klasa nr II to kraje o wyraźnie gorszym potencjale. Wszystkie statystyki (oprócz zmiany inflacji) są niższe niż w klasie pierwszej. Szczególnie zaufanie do polityków, czy też liczba zgłoszonych patentów. Ponadto występowanie ujemnej średniej zmieny inflacji sugerować może stagnację panującą w tych krajach (choć należy zwrócić uwagę na duże odchylenie standardowe - klaster nie jest jednorodny pod tym względem).  
+Z punktu widzenia inwestora, trudno podjąć decyzję która grupa jest lepsza. W pierwszej panować będzie większa konkurencja, natomiast druga odstrasza niższym rozwojem, a także pozostawiającą wiele do życzenia kulturą polityczną. Z tego powodu autor postanowił dokonać ponownego podziału, tym razem na większą liczbę grup.
+
+
+``` {r, echo = FALSE}
+
+sr3 <- od3<-  matrix(NA, 9, 3)
+rownames(sr3)<- rownames(od3) <- colnames(Dane)
+#colnames(sr) <- colnames(od) <- c("I", "II","III","IV","V")
+colnames(sr3) <- colnames(od3) <- c("I", "II","III")
+
+Dane2$ward5 <- cutree(gr_ward_d2, h=5)
+
+for(i in 1:9){
+  sr3[i,] = tapply(Dane2[,i], Dane2$ward5, mean)
+  od3[i,] = tapply(Dane2[,i], Dane2$ward5, sd)
+}
+sr3
+od3
+```
+Pierwsza grupa pozostała bez zmian, natomiast rozdzieleniu uległa druga - w ten sposób otrzymano grupę _średnią_ (numer III). Pod kątem zaufania do policji, czy też systemu edukacji jej członkom bliżej do najlepszych, lecz np. zaufanie do polityków czy ochrona własności intelektualnej porównywalne jest do krajów z drugiej grupy. To właśnie te kraje stanowią idealne miejsce do realizacji nowych inwestycji - ich rynki nie są tak przesycone jak państw lepiej rozwiniętych, a jednocześnie w tych państwach przedsiębiorcy nie spotykają wielu przeciwności. 
+
+# Podsumowanie
+
+Choć każda z rozpatrywanych metod dała różne rezultaty (co można zauważyć porównując statystyki opisowe), to jednak zauważyć można kilka podobieństw:  
+
+* Algorytmy dzieliły Unię Europejską na kraje wyraźnie lepsze i gorsze
+* Każda z klas znacząco różniła się od pozostałych, najczęściej pod względem wszystkich zmiennych
+* Klasy nie były jednorodne pod względem wszystkich wymiarów - wartości odchyleń standardowych wahały się w zależności od konkretnej zmiennej
+
+Interpretacja wyników potwierdzić może tezę o "Unii dwóch prędkości" - wśród państw członkowskich istnieją kraje w których zarówno zadowolenie z działań państwa, jak i dostępność środków przydatnych przedsiębiorców jest na wysokim poziomie. Z tymi cechami idzie w parze jednak również społeczeństwo - aktywnie korzystające z nowych technologii i o wysokim potencjale twórczym. Czynniki te pozytywnie wpływają na funkcjonowanie gospodarki.   
+Jednak grono to nie jest hermetyczne - dążą do niego państwa widoczne w grupach średnich - starają przyciągać przedsiębiorców niskim poziomem biurokracji, czy też większą łatwością w pozyskiwaniu funduszy. Dzięki tym działaniom mogą one poprawić swoją sytuację, aby w przyszłości skorzystać na zmianach wprowadzanych przez 4. rewolucję przemysłową. 
